@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="EduGenie is a Gemini-powered educational assistant.">
+  <title>EduGenie — AI Learning Assistant</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand-mark" aria-hidden="true">✦</div>
+    <p class="eyebrow">YOUR PERSONAL STUDY COMPANION</p>
+    <h1>Learn anything with <span>EduGenie</span></h1>
+    <p class="subtitle">Ask questions, simplify concepts, practise with quizzes, and plan what to learn next.</p>
+    <div class="status"><span class="status-dot"></span> Learning assistant ready</div>
+  </header>
+
+  <main class="layout">
+    <section class="panel form-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">GET STARTED</p><h2>What would you like to do?</h2></div>
+      </div>
+      <form id="learning-form">
+        <label for="task">Choose a learning tool</label>
+        <select id="task" name="task">
+          <option value="qa">Ask a question</option>
+          <option value="explain">Explain a concept</option>
+          <option value="quiz">Generate a quiz</option>
+          <option value="summarize">Summarize text</option>
+          <option value="learn/recommendations">Create a learning path</option>
+        </select>
+
+        <label for="level">Your learning level</label>
+        <select id="level" name="level">
+          <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+        </select>
+
+        <label for="text" id="input-label">Your question</label>
+        <textarea id="text" name="text" rows="6" maxlength="20000" required
+          placeholder="Example: Which is the largest ocean?"></textarea>
+        <div class="input-hint"><span id="hint">Ask one question and EduGenie will explain it clearly.</span><span id="counter">0 / 20000</span></div>
+
+        <div class="examples">
+          <span>Try:</span>
+          <button type="button" class="chip" data-example="Which is the largest ocean?">Largest ocean</button>
+          <button type="button" class="chip" data-example="The Pythagorean theorem">Pythagorean theorem</button>
+          <button type="button" class="chip" data-example="SQL">SQL learning path</button>
+        </div>
+        <button class="primary-button" type="submit"><span id="button-text">Ask EduGenie</span><span aria-hidden="true"> →</span></button>
+      </form>
+    </section>
+
+    <section class="panel result-panel" aria-live="polite">
+      <div class="result-top">
+        <div><p class="eyebrow">YOUR LEARNING SPACE</p><h2 id="result-title">Your result will appear here</h2></div>
+        <span class="sparkle" aria-hidden="true">✧</span>
+      </div>
+      <div id="result" class="result-content">
+        <div class="empty-state"><div class="empty-icon">✎</div><h3>Curiosity starts here</h3><p>Choose a tool, enter a question or topic, and your response will show up here.</p></div>
+      </div>
+      <div id="quiz-score" class="quiz-score" hidden></div>
+      <button id="reset-button" class="secondary-button" type="button">Clear result</button>
+    </section>
+  </main>
+  <footer>EduGenie <span>•</span> Learn smarter, one question at a time.</footer>
+  <script>
+    const form = document.querySelector("#learning-form");
+    const task = document.querySelector("#task");
+    const text = document.querySelector("#text");
+    const level = document.querySelector("#level");
+    const result = document.querySelector("#result");
+    const resultTitle = document.querySelector("#result-title");
+    const inputLabel = document.querySelector("#input-label");
+    const hint = document.querySelector("#hint");
+    const counter = document.querySelector("#counter");
+    const buttonText = document.querySelector("#button-text");
+    const scoreBox = document.querySelector("#quiz-score");
+    const labels = {
+      qa: ["Your question", "Ask one question and EduGenie will explain it clearly.", "Ask EduGenie", "Your answer"],
+      explain: ["Concept or topic", "Enter a concept you want explained in simple language.", "Explain concept", "Concept explanation"],
+      quiz: ["Topic or passage", "Enter a topic or paste a passage to create three MCQs.", "Generate quiz", "Your quiz"],
+      summarize: ["Text to summarize", "Paste study notes or an educational passage.", "Summarize text", "Summary"],
+      "learn/recommendations": ["What do you want to learn?", "Enter a subject such as SQL, Python, or networking.", "Create learning path", "Your learning path"]
+    };
+    function updateTask() {
+      const info = labels[task.value];
+      inputLabel.textContent = info[0];
+      hint.textContent = info[1];
+      buttonText.textContent = info[2];
+      text.placeholder = task.value === "qa" ? "Example: Which is the largest ocean?" :
+        task.value === "quiz" ? "Example: The Pythagorean theorem..." :
+        task.value === "summarize" ? "Paste your study material here..." :
+        task.value === "learn/recommendations" ? "Example: SQL" : "Example: Explain photosynthesis";
+    }
+    task.addEventListener("change", updateTask);
+    text.addEventListener("input", () => counter.textContent = `${text.value.length} / 20000`);
+    document.querySelectorAll("[data-example]").forEach(btn => btn.addEventListener("click", () => {
+      text.value = btn.dataset.example;
+      counter.textContent = `${text.value.length} / 20000`;
+      if (btn.dataset.example === "SQL") task.value = "learn/recommendations";
+      if (btn.dataset.example === "The Pythagorean theorem") task.value = "quiz";
+      if (btn.dataset.example === "Which is the largest ocean?") task.value = "qa";
+      updateTask();
+    }));
+    function renderQuiz(data) {
+      const questions = data.questions || [];
+      if (!questions.length) { result.textContent = "No quiz questions were returned. Please try again."; return; }
+      result.innerHTML = "";
+      const title = document.createElement("h3");
+      title.textContent = data.title || "Practice quiz";
+      result.appendChild(title);
+      const quizForm = document.createElement("form");
+      quizForm.id = "quiz-form";
+      questions.forEach((q, i) => {
+        const field = document.createElement("fieldset");
+        field.className = "quiz-question";
+        const legend = document.createElement("legend");
+        legend.textContent = `${i + 1}. ${q.question}`;
+        field.appendChild(legend);
+        (q.options || []).forEach((option, j) => {
+          const label = document.createElement("label");
+          label.className = "quiz-option";
+          const radio = document.createElement("input");
+          radio.type = "radio"; radio.name = `q${i}`; radio.value = String(j); radio.required = true;
+          label.append(radio, document.createTextNode(option));
+          field.appendChild(label);
+        });
+        quizForm.appendChild(field);
+      });
+      const submit = document.createElement("button");
+      submit.className = "primary-button"; submit.type = "submit"; submit.textContent = "Check my answers";
+      quizForm.appendChild(submit);
+      quizForm.addEventListener("submit", event => {
+        event.preventDefault();
+        let score = 0;
+        result.querySelectorAll(".quiz-question").forEach((field, i) => {
+          const chosen = field.querySelector("input:checked");
+          const q = questions[i];
+          const correct = chosen && Number(chosen.value) === q.answer;
+          if (correct) score++;
+          let feedback = field.querySelector(".feedback");
+          if (!feedback) { feedback = document.createElement("p"); feedback.className = "feedback"; field.appendChild(feedback); }
+          feedback.textContent = `${correct ? "Correct!" : "Not quite."} ${q.explanation || ""} Correct answer: ${q.options[q.answer]}`;
+          feedback.classList.toggle("correct", !!correct);
+          feedback.classList.toggle("incorrect", !correct);
+        });
+        scoreBox.hidden = false;
+        scoreBox.textContent = `Your score: ${score} / ${questions.length}`;
+        submit.disabled = true;
+      });
+      result.appendChild(quizForm);
+    }
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      const value = text.value.trim();
+      if (!value) { text.focus(); return; }
+      const endpoint = "/" + task.value;
+      resultTitle.textContent = labels[task.value][3];
+      result.innerHTML = '<div class="loading"><span class="spinner"></span> EduGenie is preparing your response…</div>';
+      scoreBox.hidden = true;
+      buttonText.textContent = "Working…";
+      form.querySelector(".primary-button").disabled = true;
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({text: value, level: level.value})
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Request failed");
+        if (task.value === "quiz" && typeof data.result === "object") renderQuiz(data.result);
+        else {
+          result.textContent = typeof data.result === "string" ? data.result : JSON.stringify(data.result, null, 2);
+        }
+      } catch (error) {
+        result.textContent = `Could not get a response. ${error.message} Check that the FastAPI server is running and your API key is configured.`;
+      } finally {
+        buttonText.textContent = labels[task.value][2];
+        form.querySelector(".primary-button").disabled = false;
+      }
+    });
+    document.querySelector("#reset-button").addEventListener("click", () => {
+      resultTitle.textContent = "Your result will appear here";
+      result.innerHTML = '<div class="empty-state"><div class="empty-icon">✎</div><h3>Curiosity starts here</h3><p>Choose a tool, enter a question or topic, and your response will show up here.</p></div>';
+      scoreBox.hidden = true;
+    });
+    updateTask();
+  </script>
+</body>
+</html>
